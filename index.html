@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0c0e12" />
+  <title>CourseFlow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside class="sidebar glass">
+      <div class="brand-row">
+        <div class="brand-mark">CF</div>
+        <div>
+          <div class="brand-name">CourseFlow</div>
+          <div class="brand-sub">School dashboard</div>
+        </div>
+      </div>
+
+      <nav id="desktopNav" class="nav-list"></nav>
+
+      <div class="sidebar-bottom">
+        <button id="quickAddSide" class="primary-btn full">+ Add assignment</button>
+        <button id="syncButton" class="ghost-btn full">Cloud sync</button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div>
+          <div id="pageEyebrow" class="eyebrow">COURSEFLOW</div>
+          <h1 id="pageTitle">Home</h1>
+        </div>
+        <div class="topbar-actions">
+          <button id="commandButton" class="icon-btn" title="Command menu">⌘K</button>
+          <button id="quickAddTop" class="primary-btn">+ Add</button>
+        </div>
+      </header>
+      <section id="view" class="view"></section>
+    </main>
+
+    <nav id="mobileNav" class="mobile-nav glass"></nav>
+  </div>
+
+  <div id="modalRoot"></div>
+  <div id="toastRoot" class="toast-root"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
