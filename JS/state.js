@@ -17,7 +17,7 @@ export function defaultState(){
   return {
     version:1,
     classes:[
-      {id:'general',name:'General',color:'#7c5cff',icon:'📚',teacher:'',room:'',period:'',semester:'Full Year',notes:'',link:''}
+      {id:'general',name:'General',color:'#7c5cff',icon:'📚',teacher:'',room:'',period:'',semester:'Full Year',notes:'',link:'',scheduleOnly:false}
     ],
     assignments:[],
     widgets:[
