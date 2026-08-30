@@ -15,11 +15,12 @@ export const PRIORITIES = ['low','normal','high','urgent'];
 
 export function defaultState(){
   return {
-    version:1,
+    version:2,
     classes:[
       {id:'general',name:'General',color:'#7c5cff',icon:'📚',teacher:'',room:'',period:'',semester:'Full Year',notes:'',link:'',scheduleOnly:false}
     ],
     assignments:[],
+    studySets:[],
     widgets:[
       {id:uid('widget'),type:'note',title:'Quick Notes',content:'Add reminders, ideas, or anything you do not want to turn into an assignment.',size:'wide'},
       {id:uid('widget'),type:'text',title:'This Week',content:'Stay ahead of deadlines and keep the dashboard focused.',size:''}
@@ -49,10 +50,10 @@ export function defaultState(){
       calendarDefaultView:'month',
       defaultNoTime:'none',
       dashboardEditing:false,
-      shortcuts:{new:'n',home:'h',calendar:'c',assignments:'a',search:'/',command:'meta+k'},
+      shortcuts:{new:'n',home:'h',calendar:'c',assignments:'a',study:'s',search:'/',command:'meta+k'},
       statusColors:Object.fromEntries(Object.entries(STATUS_META).map(([k,v])=>[k,v.color]))
     },
-    ui:{route:'home',calendarCursor:localISODate(new Date()).slice(0,7),calendarView:'month',assignmentFilters:{search:'',classId:'all',status:'all',priority:'all',type:'all',sort:'dueSoonest'},settingsSection:'appearance'},
+    ui:{route:'home',calendarCursor:localISODate(new Date()).slice(0,7),calendarView:'month',assignmentFilters:{search:'',classId:'all',status:'all',priority:'all',type:'all',sort:'dueSoonest'},settingsSection:'appearance',studySetId:null,studyMode:'overview'},
     auth:{user:null,cloudEnabled:false,lastSync:null}
   };
 }
