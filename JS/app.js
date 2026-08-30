@@ -3,11 +3,12 @@ import { STATUS_META, TYPE_OPTIONS, PRIORITIES, defaultState } from './state.js'
 import { uid, localISODate, parseLocalDate, dateKey, escapeHTML, formatDate, formatLongDate, formatTime, relativeDue, daysBetween, isPastDue, sortAssignments, downloadJSON } from './utils.js';
 import { parseBulk } from './parser.js';
 import { cloudConfigured, observeAuth, signIn, signOutCloud, pushCloud, pullCloud, watchCloud } from './cloud.js';
+import { renderStudy } from './study.js';
 
 let state=loadState();
 const $=s=>document.querySelector(s); const $$=s=>[...document.querySelectorAll(s)];
 const view=$('#view'), modalRoot=$('#modalRoot'), toastRoot=$('#toastRoot');
-const NAV=[['home','⌂','Home'],['calendar','▦','Calendar'],['assignments','✓','Assignments'],['add','＋','Add'],['completed','◷','Completed'],['classes','◉','Classes'],['settings','⚙','Settings']];
+const NAV=[['home','⌂','Home'],['calendar','▦','Calendar'],['assignments','✓','Assignments'],['study','◆','Study'],['add','＋','Add'],['completed','◷','Completed'],['classes','◉','Classes'],['settings','⚙','Settings']];
 
 function persist(sync=true){ saveState(state); applyTheme(); if(sync) queueCloud(); }
 let cloudTimer, stopCloudWatch=null, cloudSyncUid=null;
@@ -24,6 +25,15 @@ function mergeAssignments(local=[],remote=[]){
   }
   return [...merged.values()];
 }
+function studyStamp(x){return Date.parse(x?.updatedAt||x?.createdAt||0)||0;}
+function mergeStudySets(local=[],remote=[]){
+  const merged=new Map(local.map(x=>[x.id,x]));
+  for(const r of remote||[]){
+    const l=merged.get(r.id);
+    if(!l||studyStamp(r)>studyStamp(l))merged.set(r.id,r);
+  }
+  return [...merged.values()];
+}
 function mergeRemoteState(remote,user){
   if(!remote) return state;
   const auth={user:{uid:user.uid,email:user.email,displayName:user.displayName},cloudEnabled:true,lastSync:remote.auth?.lastSync||state.auth.lastSync};
@@ -34,6 +44,7 @@ function mergeRemoteState(remote,user){
     assignments:mergeAssignments(state.assignments,remote.assignments||[]),
     classes:Array.isArray(remote.classes)&&remote.classes.length?remote.classes:state.classes,
     widgets:Array.isArray(remote.widgets)?remote.widgets:state.widgets,
+    studySets:mergeStudySets(state.studySets||[],remote.studySets||[]),
     settings:{...state.settings,...(remote.settings||{}),statusColors:{...state.settings.statusColors,...(remote.settings?.statusColors||{})},shortcuts:{...state.settings.shortcuts,...(remote.settings?.shortcuts||{})}},
     ui:state.ui,
     auth
@@ -55,10 +66,10 @@ async function startCloudSync(user){
     state.auth.lastSync=await pushCloud(user.uid,state);
     saveState(state);
     stopCloudWatch=await watchCloud(user.uid,remoteState=>{
-      const before=JSON.stringify(state.assignments);
+      const before=JSON.stringify([state.assignments,state.studySets]);
       state=mergeRemoteState(remoteState,user);
       saveState(state);
-      if(JSON.stringify(state.assignments)!==before) render();
+      if(JSON.stringify([state.assignments,state.studySets])!==before) render();
     });
   }catch(e){
     console.error('Cloud sync startup failed',e);
@@ -84,13 +95,13 @@ function archivedCompleted(){ const days=Number(state.settings.archiveDays)||21;
 function setRoute(route){ state.ui.route=route; if(route==='calendar') state.ui.calendarCursor=localISODate(new Date()).slice(0,7); persist(false); render(); window.scrollTo({top:0,behavior:'smooth'}); }
 function renderNav(){
   $('#desktopNav').innerHTML=NAV.map(([r,i,l])=>`<button class="nav-item ${state.ui.route===r?'active':''}" data-route="${r}"><span class="nav-icon">${i}</span>${l}</button>`).join('');
-  $('#mobileNav').innerHTML=[['home','⌂','Home'],['calendar','▦','Calendar'],['__add','＋',''],['assignments','✓','Tasks'],['settings','⚙','More']].map(([r,i,l])=>`<button class="${r==='__add'?'mobile-plus':''} ${state.ui.route===r?'active':''}" data-route="${r}"><span class="m-icon">${i}</span>${l}</button>`).join('');
+  $('#mobileNav').innerHTML=[['home','⌂','Home'],['calendar','▦','Calendar'],['__add','＋',''],['assignments','✓','Tasks'],['study','◆','Study'],['settings','⚙','More']].map(([r,i,l])=>`<button class="${r==='__add'?'mobile-plus':''} ${state.ui.route===r?'active':''}" data-route="${r}"><span class="m-icon">${i}</span>${l}</button>`).join('');
   $$('[data-route]').forEach(b=>b.onclick=()=>b.dataset.route==='__add'?openAssignmentForm():setRoute(b.dataset.route));
 }
 function pageTitle(){return NAV.find(n=>n[0]===state.ui.route)?.[2]||'CourseFlow';}
 function render(){
   renderNav(); $('#pageTitle').textContent=pageTitle(); $('#pageEyebrow').textContent=state.ui.route==='home'?'YOUR SCHOOL DASHBOARD':'COURSEFLOW';
-  const map={home:renderHome,calendar:renderCalendar,assignments:renderAssignments,add:renderAdd,completed:renderCompleted,classes:renderClasses,settings:renderSettings};
+  const map={home:renderHome,calendar:renderCalendar,assignments:renderAssignments,study:()=>renderStudy(view,state,{persist,toast}),add:renderAdd,completed:renderCompleted,classes:renderClasses,settings:renderSettings};
   view.innerHTML=''; (map[state.ui.route]||renderHome)(); bindCommon();
 }
 function bindCommon(){ $$('[data-open-assignment]').forEach(el=>el.onclick=e=>{e.stopPropagation();openAssignmentDetail(el.dataset.openAssignment)}); $$('[data-day]').forEach(el=>el.onclick=()=>openDay(el.dataset.day)); }
@@ -174,7 +185,7 @@ function openBulkImporter(){showModal('Bulk import',`<div class="switch-row"><di
 function openClassForm(id=null){const c=id?getClass(id):{id:uid('class'),name:'',color:'#5d8cff',icon:'📚',teacher:'',room:'',period:'',semester:'Full Year',notes:'',link:'',scheduleOnly:false};showModal(id?'Edit class':'Add class',`<div class="form-grid"><div class="field span-2"><label>Class name</label><input id="cName" class="input" value="${escapeHTML(c.name)}"></div><div class="field"><label>Icon</label><input id="cIcon" class="input" value="${escapeHTML(c.icon||'')}"></div><div class="field"><label>Color</label><input id="cColor" type="color" class="input" value="${c.color}"></div><div class="field"><label>Teacher</label><input id="cTeacher" class="input" value="${escapeHTML(c.teacher||'')}"></div><div class="field"><label>Room</label><input id="cRoom" class="input" value="${escapeHTML(c.room||'')}"></div><div class="field"><label>Period</label><input id="cPeriod" class="input" value="${escapeHTML(c.period||'')}"></div><div class="field"><label>Semester</label><select id="cSemester">${['Fall','Spring','Full Year'].map(x=>`<option ${c.semester===x?'selected':''}>${x}</option>`).join('')}</select></div><div class="field span-2"><label>Class link</label><input id="cLink" class="input" value="${escapeHTML(c.link||'')}"></div><div class="field span-2"><label>Notes</label><textarea id="cNotes">${escapeHTML(c.notes||'')}</textarea></div><div class="field span-2"><div class="switch-row"><div><strong>Schedule-only class</strong><div class="subtle mt-8">Items still appear around the site, but do not count as deadlines, never become overdue, and automatically hide after their scheduled date passes.</div></div><div id="cScheduleOnly" class="switch ${c.scheduleOnly?'on':''}"></div></div></div></div>`,()=>{const name=$('#cName').value.trim();if(!name)return toast('Give the class a name');const next={...c,name,color:$('#cColor').value,icon:$('#cIcon').value||'📚',teacher:$('#cTeacher').value,room:$('#cRoom').value,period:$('#cPeriod').value,semester:$('#cSemester').value,link:$('#cLink').value,notes:$('#cNotes').value,scheduleOnly:$('#cScheduleOnly')?.classList.contains('on')||false};if(id)state.classes=state.classes.map(x=>x.id===id?next:x);else state.classes.push(next);persist();closeModal();render();toast(id?'Class updated':'Class added');},id&&id!=='general'?'<button id="deleteClass" class="danger-btn" style="margin-right:auto">Delete class</button>':'');$('#cScheduleOnly')?.addEventListener('click',e=>e.currentTarget.classList.toggle('on'));if(id&&id!=='general')$('#deleteClass').onclick=()=>confirmModal('Delete class?','Assignments in this class will move to General.',()=>{state.assignments.forEach(a=>{if(a.classId===id)a.classId='general'});state.classes=state.classes.filter(x=>x.id!==id);persist();closeModal();render();});}
 function openWidgetForm(){showModal('Add widget',`<div class="form-grid"><div class="field"><label>Type</label><select id="wType"><option value="note">Note</option><option value="text">Text</option><option value="image">Image URL</option><option value="link">Link</option></select></div><div class="field"><label>Size</label><select id="wSize"><option value="">Normal</option><option value="wide">Wide</option><option value="full">Full width</option></select></div><div class="field span-2"><label>Title</label><input id="wTitle" class="input"></div><div class="field span-2"><label>Content / URL</label><textarea id="wContent"></textarea></div></div>`,()=>{const title=$('#wTitle').value.trim()||'Untitled widget';state.widgets.push({id:uid('widget'),type:$('#wType').value,size:$('#wSize').value,title,content:$('#wContent').value});persist();closeModal();render();});}
 
-function openCommandMenu(){if(!state.settings.enableCommandMenu)return;showModal('Command menu',`<input id="commandSearch" class="input" placeholder="Search assignments, classes, actions..." autofocus><div id="commandResults" class="command-list"></div>`,null,'',true);const input=$('#commandSearch'),results=$('#commandResults');const update=()=>{const q=input.value.toLowerCase(),commands=[{label:'Add assignment',run:()=>openAssignmentForm()},{label:'Go to Home',run:()=>setRoute('home')},{label:'Go to Calendar',run:()=>setRoute('calendar')},{label:'Go to Assignments',run:()=>setRoute('assignments')},{label:'Open Settings',run:()=>setRoute('settings')},...state.assignments.map(a=>({label:`${getClass(a.classId).name} — ${a.name}`,run:()=>openAssignmentDetail(a.id)})),...state.classes.map(c=>({label:`Class — ${c.name}`,run:()=>{setRoute('classes');setTimeout(()=>openClassForm(c.id),0)}}))].filter(x=>x.label.toLowerCase().includes(q)).slice(0,12);results.innerHTML=commands.map((x,i)=>`<button class="command-item" data-command="${i}">${escapeHTML(x.label)}</button>`).join('');$$('[data-command]').forEach(b=>b.onclick=()=>{const cmd=commands[Number(b.dataset.command)];closeModal();cmd.run();});};input.oninput=update;update();}
+function openCommandMenu(){if(!state.settings.enableCommandMenu)return;showModal('Command menu',`<input id="commandSearch" class="input" placeholder="Search assignments, classes, actions..." autofocus><div id="commandResults" class="command-list"></div>`,null,'',true);const input=$('#commandSearch'),results=$('#commandResults');const update=()=>{const q=input.value.toLowerCase(),commands=[{label:'Add assignment',run:()=>openAssignmentForm()},{label:'Go to Home',run:()=>setRoute('home')},{label:'Go to Calendar',run:()=>setRoute('calendar')},{label:'Go to Assignments',run:()=>setRoute('assignments')},{label:'Go to Study',run:()=>setRoute('study')},{label:'Open Settings',run:()=>setRoute('settings')},...state.assignments.map(a=>({label:`${getClass(a.classId).name} — ${a.name}`,run:()=>openAssignmentDetail(a.id)})),...state.classes.map(c=>({label:`Class — ${c.name}`,run:()=>{setRoute('classes');setTimeout(()=>openClassForm(c.id),0)}}))].filter(x=>x.label.toLowerCase().includes(q)).slice(0,12);results.innerHTML=commands.map((x,i)=>`<button class="command-item" data-command="${i}">${escapeHTML(x.label)}</button>`).join('');$$('[data-command]').forEach(b=>b.onclick=()=>{const cmd=commands[Number(b.dataset.command)];closeModal();cmd.run();});};input.oninput=update;update();}
 
 function showModal(title,body,onSave=null,extraFoot='',wide=false){modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal ${wide?'wide':''}"><div class="modal-head"><strong>${escapeHTML(title)}</strong><button id="modalClose" class="icon-btn">×</button></div><div class="modal-body">${body}</div>${onSave||extraFoot?`<div class="modal-foot">${extraFoot}<button id="modalCancel" class="ghost-btn">Cancel</button>${onSave?'<button id="modalSave" class="primary-btn">Save</button>':''}</div>`:''}</div></div>`;$('#modalClose').onclick=closeModal;const cancel=$('#modalCancel');if(cancel)cancel.onclick=closeModal;const save=$('#modalSave');if(save)save.onclick=onSave;$('.modal-backdrop').onclick=e=>{if(e.target.classList.contains('modal-backdrop'))closeModal();};}
 function closeModal(){modalRoot.innerHTML='';}
@@ -186,7 +197,7 @@ function toast(message,action='',fn=null){const el=document.createElement('div')
 async function handleCloudAction(){try{if(state.auth.user){if(stopCloudWatch){stopCloudWatch();stopCloudWatch=null;}cloudSyncUid=null;await signOutCloud();state.auth.user=null;state.auth.cloudEnabled=false;persist(false);renderSettings();toast('Signed out of cloud sync');return;}if(!cloudConfigured())return toast('Add Firebase config values first');await signIn();toast('Signed in — syncing your latest progress');}catch(e){console.error(e);toast('Cloud sign-in failed');}}
 function openBackupImport(){showModal('Import backup',`<div class="field"><label>Choose CourseFlow JSON backup</label><input id="backupFile" class="input" type="file" accept="application/json,.json"></div><div class="subtle mt-16">This replaces the current local data after validation.</div>`,async()=>{const f=$('#backupFile').files[0];if(!f)return toast('Choose a backup file');try{const obj=JSON.parse(await f.text());if(!Array.isArray(obj.assignments)||!Array.isArray(obj.classes))throw new Error('bad');state={...defaultState(),...obj,auth:state.auth};persist();closeModal();render();toast('Backup imported');}catch{toast('That file is not a valid CourseFlow backup');}});}
 
-function handleKeyboard(e){if(!state.settings.enableShortcuts)return;const tag=document.activeElement?.tagName;if(['INPUT','TEXTAREA','SELECT'].includes(tag))return;const key=e.key.toLowerCase();if((e.metaKey||e.ctrlKey)&&key==='k'){e.preventDefault();openCommandMenu();return;}const s=state.settings.shortcuts;if(key===s.new){e.preventDefault();openAssignmentForm();}else if(key===s.home)setRoute('home');else if(key===s.calendar)setRoute('calendar');else if(key===s.assignments)setRoute('assignments');else if(key===s.search){e.preventDefault();setRoute('assignments');setTimeout(()=>$('#fSearch')?.focus(),0);}}
+function handleKeyboard(e){if(!state.settings.enableShortcuts)return;const tag=document.activeElement?.tagName;if(['INPUT','TEXTAREA','SELECT'].includes(tag))return;const key=e.key.toLowerCase();if((e.metaKey||e.ctrlKey)&&key==='k'){e.preventDefault();openCommandMenu();return;}const s=state.settings.shortcuts;if(key===s.new){e.preventDefault();openAssignmentForm();}else if(key===s.home)setRoute('home');else if(key===s.calendar)setRoute('calendar');else if(key===s.assignments)setRoute('assignments');else if(key===s.study)setRoute('study');else if(key===s.search){e.preventDefault();setRoute('assignments');setTimeout(()=>$('#fSearch')?.focus(),0);}}
 
 $('#quickAddSide').onclick=()=>openAssignmentForm();$('#quickAddTop').onclick=()=>openAssignmentForm();$('#commandButton').onclick=openCommandMenu;$('#syncButton').onclick=()=>{state.ui.route='settings';state.ui.settingsSection='data';render();};document.addEventListener('keydown',handleKeyboard);
 
