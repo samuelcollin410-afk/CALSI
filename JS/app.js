@@ -3,7 +3,7 @@ import { STATUS_META, TYPE_OPTIONS, PRIORITIES, defaultState } from './state.js'
 import { uid, localISODate, parseLocalDate, dateKey, escapeHTML, formatDate, formatLongDate, formatTime, relativeDue, daysBetween, isPastDue, sortAssignments, downloadJSON } from './utils.js';
 import { parseBulk } from './parser.js';
 import { cloudConfigured, observeAuth, signIn, signOutCloud, pushCloud, pullCloud, watchCloud } from './cloud.js';
-import { renderStudy } from './study.js';
+import { renderStudy } from './study-v2.js';
 
 let state=loadState();
 const $=s=>document.querySelector(s); const $$=s=>[...document.querySelectorAll(s)];
