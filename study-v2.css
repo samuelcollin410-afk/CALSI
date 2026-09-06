@@ -2,7 +2,7 @@
 
 /* Mobile Study density: keep questions and answers usable without endless scrolling. */
 @media(max-width:760px){
-  .main-area{padding-inline:8px;padding-bottom:82px}
+  .main-area{padding-inline:8px;padding-bottom:110px}
   .topbar{min-height:64px;padding-top:4px}
   .topbar h1{font-size:25px;margin-top:1px}
   .eyebrow{font-size:9px}
@@ -43,13 +43,13 @@
   .learn-start h2{font-size:22px}
   .learn-round-options{gap:6px;margin-top:12px}
   .learn-round-options button{min-width:48px;padding:8px 9px}
-  .study-session{max-width:100%}
+  .study-session{max-width:100%;padding-bottom:12px}
   .study-progress{margin-bottom:8px;font-size:11px;gap:8px}
   .study-progress .progress-track{height:6px}
   .quiz-question{padding:18px 12px}
   .quiz-question h2{font-size:clamp(20px,6vw,28px);line-height:1.16;margin:5px 0 0;overflow-wrap:anywhere}
   .quiz-question .study-term-stats{margin-top:7px}
-  .quiz-options{grid-template-columns:1fr;gap:7px;margin-top:8px}
+  .quiz-options{grid-template-columns:1fr;gap:7px;margin-top:8px;padding-bottom:8px}
   .quiz-option{min-height:62px;padding:11px 13px;border-radius:12px;font-size:15px;line-height:1.25}
   .quiz-feedback{margin-top:8px;padding:10px 11px;font-size:12px;gap:7px}
   .quiz-feedback button{padding:7px 10px}
@@ -60,11 +60,28 @@
   .flash-controls button{padding:8px 7px;font-size:11px}
   .quiz-results{margin:12px auto 0;padding-block:22px}
   .quiz-score{font-size:54px}
+
+  /* Six nav actions must stay on one row. The old five-column grid pushed More
+     onto a second row and covered the lower quiz answers. */
+  .mobile-nav{
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    gap:2px;
+    bottom:max(6px,env(safe-area-inset-bottom));
+    left:6px;
+    right:6px;
+    padding:5px;
+    border-radius:16px;
+  }
+  .mobile-nav button{min-width:0;padding:7px 1px;font-size:9px;line-height:1.1}
+  .mobile-nav button .m-icon{font-size:17px;margin-bottom:2px}
+  .mobile-nav .mobile-plus{font-size:17px}
 }
 
 @media(max-width:390px){
-  .main-area{padding-inline:6px}
+  .main-area{padding-inline:6px;padding-bottom:106px}
   .quiz-question{padding:14px 9px}
   .quiz-option{min-height:56px;padding:10px 11px;font-size:14px}
   .mastery-grid span{font-size:7px}
+  .mobile-nav button{font-size:8px}
+  .mobile-nav button .m-icon{font-size:16px}
 }
