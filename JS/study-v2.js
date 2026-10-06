@@ -119,16 +119,21 @@ function quickMode(root,set,ctx){
    const q=questions[index];
    const distractors=shuffle(set.terms.filter(t=>t.id!==q.id)).slice(0,3);
    const choices=shuffle([q,...distractors]);
-   root.innerHTML=`<section class="study-session"><div class="study-progress"><span>Quick · ${index+1}/${questions.length}</span><span>${correct} right</span></div><article class="card quiz-question"><div class="quiz-question-top"><div class="study-term-label">${q.module?`${esc(q.module)} · `:''}CHOOSE THE ANSWER</div><button id="star" class="favorite-btn ${q.favorite?'active':''}">★</button></div><h2>${esc(q.term)}</h2></article><div class="quiz-options">${choices.map(ch=>`<button class="quiz-option" data-answer="${ch.id}">${esc(ch.definition)}</button>`).join('')}</div><div id="feedback" class="subtle mt-16">Choose an answer — the next question loads automatically.</div></section>`;
+   root.innerHTML=`<section class="study-session"><div class="study-progress"><span>Quick · ${index+1}/${questions.length}</span><span>${correct} right</span></div><article class="card quiz-question quick-question-card"><div id="quickResultDot" class="quick-result-dot" aria-live="polite" aria-atomic="true"></div><div class="quiz-question-top"><div class="study-term-label">${q.module?`${esc(q.module)} · `:''}CHOOSE THE ANSWER</div><button id="star" class="favorite-btn ${q.favorite?'active':''}">★</button></div><h2>${esc(q.term)}</h2></article><div class="quiz-options">${choices.map(ch=>`<button class="quiz-option" data-answer="${ch.id}">${esc(ch.definition)}</button>`).join('')}</div><div id="feedback" class="subtle mt-16">Choose an answer — the next question loads automatically.</div></section>`;
    root.querySelector('#star').onclick=()=>{q.favorite=!q.favorite;set.updatedAt=now();ctx.persist();};
+   let locked=false;
    root.querySelectorAll('[data-answer]').forEach(b=>b.onclick=()=>{
+    if(locked)return;
+    locked=true;
+    root.querySelectorAll('[data-answer]').forEach(x=>x.disabled=true);
     const ok=b.dataset.answer===q.id;
     if(ok){correct++;q.correctCount++;q.correctStreak++;if(q.correctStreak>=2&&q.mastery<3){q.mastery++;q.correctStreak=0;}}
     else{q.wrongCount++;q.correctStreak=0;q.mastery=Math.max(1,q.mastery-1);}
     q.lastAnsweredAt=now();set.updatedAt=now();ctx.persist();
     attempts.push({term:q,ok,chosenId:b.dataset.answer});
-    index++;
-    draw();
+    const dot=root.querySelector('#quickResultDot');
+    if(dot){dot.className=`quick-result-dot show ${ok?'right':'wrong'}`;dot.textContent=ok?'✓':'×';dot.setAttribute('aria-label',ok?'Correct':'Wrong');}
+    setTimeout(()=>{index++;draw();},420);
    });
   };
 
